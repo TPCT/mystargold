@@ -21,12 +21,13 @@ poolThread = []
 finishedWriter = open('finished.txt', 'w+', buffering=1)
 validWriter = open('valid.txt', 'a+', buffering=1)
 respWriter = open('resp.txt', 'w+', buffering=1)
-proxyType = ['http://', 'https://', 'socks4://', 'socks5://']
 proxyList = None
 
 
 def accountChecker(phoneNumber):
     global proxyCounter, proxyLength
+    if proxyLength <= 0:
+        return None
     headers = {
         'Accept': 'application/json, text/javascript, */*; q=0.01',
         'Accept-Encoding': 'gzip, deflate, br',
@@ -41,29 +42,25 @@ def accountChecker(phoneNumber):
     }
     postData = {'phoneNumber': phoneNumber}
 
-    while not proxyList[proxyCounter % proxyLength]:
-        proxyCounter += 1        
     proxyCounter += 1
+    proxyDict = {'http': proxyList[proxyCounter % proxyLength]}
+    proxyDict['https'] = proxyDict['http']
+
     while True:
-        for i in range(4):
-            try:
-                proxyDict = {'http': proxyType[i] + proxyList[proxyCounter % proxyLength]}
-                proxyDict['https'] = proxyDict['http']
-                resp = post('https://mystargold.com/register/verifyPhoneNumber',
-                            data=postData, proxies=proxyDict, verify=False, timeout=requestTimeout, headers=headers)
-                sleep(sleepTime)
-                print('checked phoneNumber %s' % phoneNumber)
-                respWriter.write("---%s----\n%s\n" % (phoneNumber, resp.content))
-                if 'Phone # is already registered' in str(resp.content):
-                    return True, phoneNumber
-                return False, phoneNumber
-            except Exception as e:
-                print(e)
-                pass
-        del proxyList[proxyCounter % proxyLengh]
-        proxyLength = len(proxyList)
-        proxyCounter += 1
-        print('changing proxy for phoneNumber %s' % phoneNumber)
+        try:
+            resp = post('https://mystargold.com/register/verifyPhoneNumber',
+                        data=postData, proxies=proxyDict, verify=False, timeout=requestTimeout, headers=headers)
+            sleep(sleepTime)
+            print('checked phoneNumber %s' % phoneNumber)
+            respWriter.write("---%s----\n%s\n" % (phoneNumber, resp.content))
+            if 'Phone # is already registered' in str(resp.content):
+                return True, phoneNumber
+            return False, phoneNumber
+        except Exception as e:
+            del proxyList[proxyCounter % proxyLength]
+            proxyLength -= 1 
+            proxyCounter += 1
+            print('changing proxy for phoneNumber %s' % phoneNumber)
         proxyDict = {'http': proxyList[proxyCounter % proxyLength]}
         proxyDict['https'] = proxyDict['http']
 
@@ -74,18 +71,20 @@ if len(argv) == 6:
     if path.isfile(argv[1]) and path.isfile(argv[2]):
         with open(argv[1], 'r') as accountReader, open(argv[2], 'r') as proxyReader:
             proxyParser = lambda valid, proxyIp, proxyPort, proxyType: proxyType + '://' + proxyIp + ':' + proxyPort
-            proxyList = proxyReader.readlines()
+            proxyList = [proxyParser(*eval(x.strip())) for x in proxyReader.readlines()[:-1]]
             proxyLength = len(proxyList)
             executor = ThreadPoolExecutor(max_workers=int(argv[3]))
             for account in accountReader.readlines():
                 account = account.strip()
-                if account:
+                if account and proxyLength > 0:
                     print('checking phoneNumber %s' % account)
                     poolThread.append(executor.submit(accountChecker, account))
 
             for future in as_completed(poolThread):
                 result = future.result()
-                validWriter.write('%s\n' % result[1]) if result[0] else None
-                finishedWriter.write('%s\n' % result[1])
-                validWriter.flush()
-                finishedWriter.flush()
+                
+                if result:
+                    validWriter.write('%s\n' % result[1]) if result[0] else None
+                    finishedWriter.write('%s\n' % result[1])
+                    validWriter.flush()
+                    finishedWriter.flush()
