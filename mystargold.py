@@ -40,9 +40,9 @@ def accountChecker(phoneNumber):
     }
     postData = {'phoneNumber': phoneNumber}
 
-    proxyCounter += 1
     proxyDict = {'http': proxyList[proxyCounter % proxyLength]}
     proxyDict['https'] = proxyDict['http']
+    proxyCounter += 1
 
     while True:
         try:
@@ -55,6 +55,7 @@ def accountChecker(phoneNumber):
                 return True, phoneNumber
             return False, phoneNumber
         except Exception as e:
+            del proxyList[proxyCounter]
             proxyCounter += 1
             print('changing proxy for phoneNumber %s' % phoneNumber)
         proxyDict = {'http': proxyList[proxyCounter % proxyLength]}
@@ -67,7 +68,7 @@ if len(argv) == 6:
     if path.isfile(argv[1]) and path.isfile(argv[2]):
         with open(argv[1], 'r') as accountReader, open(argv[2], 'r') as proxyReader:
             proxyParser = lambda valid, proxyIp, proxyPort, proxyType: proxyType + '://' + proxyIp + ':' + proxyPort
-            proxyList = [proxyParser(*eval(x.strip())) for x in proxyReader.readlines()[:-1]]
+            proxyList = proxyReader.readlines()
             proxyLength = len(proxyList)
             executor = ThreadPoolExecutor(max_workers=int(argv[3]))
             for account in accountReader.readlines():
