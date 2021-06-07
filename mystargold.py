@@ -21,11 +21,12 @@ poolThread = []
 finishedWriter = open('finished.txt', 'w+', buffering=1)
 validWriter = open('valid.txt', 'a+', buffering=1)
 respWriter = open('resp.txt', 'w+', buffering=1)
+proxyType = ['http://', 'https://', 'socks4://', 'socks5://']
 proxyList = None
 
 
 def accountChecker(phoneNumber):
-    global proxyCounter
+    global proxyCounter, proxyLength
     headers = {
         'Accept': 'application/json, text/javascript, */*; q=0.01',
         'Accept-Encoding': 'gzip, deflate, br',
@@ -40,24 +41,29 @@ def accountChecker(phoneNumber):
     }
     postData = {'phoneNumber': phoneNumber}
 
-    proxyDict = {'http': proxyList[proxyCounter % proxyLength]}
-    proxyDict['https'] = proxyDict['http']
+    while not proxyList[proxyCounter % proxyLength]:
+        proxyCounter += 1        
     proxyCounter += 1
-
     while True:
-        try:
-            resp = post('https://mystargold.com/register/verifyPhoneNumber',
-                        data=postData, proxies=proxyDict, verify=False, timeout=requestTimeout, headers=headers)
-            sleep(sleepTime)
-            print('checked phoneNumber %s' % phoneNumber)
-            respWriter.write("---%s----\n%s\n" % (phoneNumber, resp.content))
-            if 'Phone # is already registered' in str(resp.content):
-                return True, phoneNumber
-            return False, phoneNumber
-        except Exception as e:
-            del proxyList[proxyCounter]
-            proxyCounter += 1
-            print('changing proxy for phoneNumber %s' % phoneNumber)
+        for i in range(4):
+            try:
+                proxyDict = {'http': proxyType[i] + proxyList[proxyCounter % proxyLength]}
+                proxyDict['https'] = proxyDict['http']
+                resp = post('https://mystargold.com/register/verifyPhoneNumber',
+                            data=postData, proxies=proxyDict, verify=False, timeout=requestTimeout, headers=headers)
+                sleep(sleepTime)
+                print('checked phoneNumber %s' % phoneNumber)
+                respWriter.write("---%s----\n%s\n" % (phoneNumber, resp.content))
+                if 'Phone # is already registered' in str(resp.content):
+                    return True, phoneNumber
+                return False, phoneNumber
+            except Exception as e:
+                print(e)
+                pass
+        del proxyList[proxyCounter % proxyLengh]
+        proxyLength = len(proxyList)
+        proxyCounter += 1
+        print('changing proxy for phoneNumber %s' % phoneNumber)
         proxyDict = {'http': proxyList[proxyCounter % proxyLength]}
         proxyDict['https'] = proxyDict['http']
 
