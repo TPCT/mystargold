@@ -58,7 +58,7 @@ def accountChecker(phoneNumber):
             return False, phoneNumber
         except Exception as e:
             del proxyList[proxyCounter % proxyLength]
-            proxyLength -= 1 
+            proxyLength -= 1
             proxyCounter += 1
             print('changing proxy for phoneNumber %s' % phoneNumber)
         proxyDict = {'http': proxyList[proxyCounter % proxyLength]}
@@ -82,7 +82,7 @@ if len(argv) == 6:
 
             for future in as_completed(poolThread):
                 result = future.result()
-                
+
                 if result:
                     validWriter.write('%s\n' % result[1]) if result[0] else None
                     finishedWriter.write('%s\n' % result[1])
